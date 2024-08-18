@@ -1,0 +1,123 @@
+pipeline {
+    agent any
+    environment {
+        dockerHubUsername = 'rohithraj25'  
+        dockerImageTag = "${dockerHubUsername}/user-service:latest"
+        DOCKER_REGISTRY = "https://index.docker.io/v1/"
+        DOCKER_CREDENTIALS_ID = "dockerID"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                script {
+                    // Clone the main repository
+                    git url: 'https://github.com/rohithraj25/Insurance-Management.git'
+
+                    // List of microservices directories within the main repository
+                    def microservices = [
+                        'working/cms-api-gateway'
+                    ]
+
+                    // Echo a message for each microservice directory
+                    microservices.each { serviceDir ->
+                        echo "Checked out ${serviceDir}"
+                    }
+                }
+            }
+        }
+
+        stage('Build Maven Projects') {
+            steps {
+                script {
+                    // List of Maven projects
+                    def mavenProjects = [
+                        'cms-api-gateway'
+                    ]
+
+                    // Build each Maven project
+                    mavenProjects.each { projectDir ->
+                        dir(projectDir) {
+                            echo "Building Maven project ${projectDir}"
+                            sh 'mvn clean package'
+                        }
+                    }
+                }
+            }
+        }
+stage('Clean Previous Images') {
+            steps {
+                script {
+                    def imageName = "${dockerImageTag}/user-service"
+
+                    sh """
+                    docker images | grep '${imageName}' | awk '{print \$3}' | xargs -r docker rmi -f
+                    """
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    def dockerImageTag = "cms-api-gateway:latest"
+
+                    // Build Docker image
+                    dir('cms-api-gateway') {
+                        sh "docker build -t ${dockerImageTag} ."
+                    }
+                }
+            }
+        }
+
+        stage('Clean Previous Container') {
+            steps {
+                script {
+                    def containerName = "cms-api-gateway-container"
+
+                    // Stop and remove any existing container with the same name
+                    sh """
+                    if [ \$(docker ps -aq -f name=${containerName}) ]; then
+                        docker stop ${containerName}
+                        docker rm ${containerName}
+                    fi
+                    """
+                }
+            }
+        }
+
+        stage('Run Docker Container') {
+            steps {
+                script {
+                    def dockerImageTag = "cms-api-gateway:latest"
+                    def containerName = "cms-api-gateway-container"
+
+                    // Run Docker container
+                    sh "docker run -d --name ${containerName} -p 9000:9000 ${dockerImageTag}"
+                }
+            }
+        }
+         stage('Push Docker Image') {
+            steps {
+                script {
+                    docker.withRegistry(env.DOCKER_REGISTRY, env.DOCKER_CREDENTIALS_ID) {
+                        def dockerImage = docker.image(dockerImageTag)
+                        dockerImage.push()
+                    }
+                }
+            }
+        }
+
+        stage('Pull Docker Image') {
+            steps {
+                script {
+                    docker.withRegistry(env.DOCKER_REGISTRY, env.DOCKER_CREDENTIALS_ID) {
+                        def dockerImage = docker.image(dockerImageTag)
+                        dockerImage.pull()
+                    }
+                }
+            }
+        }
+    }
+}
+

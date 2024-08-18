@@ -1,0 +1,112 @@
+pipeline {
+    agent any
+    environment {
+        dockerHubUsername = 'rohithraj25'  
+        dockerImageTag = "${dockerHubUsername}/user-service:latest"
+        DOCKER_REGISTRY = "https://index.docker.io/v1/"
+        DOCKER_CREDENTIALS_ID = "dockerID"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                script {
+                    git url: 'https://github.com/rohithraj25/Insurance-Management.git'
+                    def microservices = [
+                        'working/cms-user-service'
+                    ]
+                    microservices.each { serviceDir ->
+                        echo "Checked out ${serviceDir}"
+                    }
+                }
+            }
+        }
+
+        stage('Build Maven') {
+            steps {
+                script {
+                    def mavenProjects = [
+                        'cms-user-service'
+                    ]
+                    mavenProjects.each { projectDir ->
+                        dir(projectDir) {
+                            echo "Building Maven project ${projectDir}"
+                            sh 'mvn clean package'
+                        }
+                    }
+                }
+            }
+        }
+stage('Clean Previous Images') {
+            steps {
+                script {
+                    def imageName = "${dockerImageTag}/user-service"
+
+                    sh """
+                    docker images | grep '${imageName}' | awk '{print \$3}' | xargs -r docker rmi -f
+                    """
+                }
+            }
+        }
+
+        stage('Docker Image') {
+            steps {
+                script {
+                    def dockerImageTag = "cms-user-service:latest"
+                    dir('user-service') {
+                        sh "docker build -t ${dockerImageTag} ."
+                    }
+                }
+            }
+        }
+
+ stage('Clean Previous Container') {
+            steps {
+                script {
+                    def containerName = "cms-user-service-container"
+
+                    // Stop and remove any existing container with the same name
+                    sh """
+                    if [ \$(docker ps -aq -f name=${containerName}) ]; then
+                        docker stop ${containerName}
+                        docker rm ${containerName}
+                    fi
+                    """
+                }
+            }
+        }
+
+
+        stage('Run Docker Container') {
+            steps {
+                script {
+                    def dockerImageTag = "cms-user-service:latest"
+                    def containerName = "cms-user-service-container"
+                    sh "docker run -d --name ${containerName} -p 8081:8081 ${dockerImageTag}"
+                }
+            }
+        }
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    docker.withRegistry(env.DOCKER_REGISTRY, env.DOCKER_CREDENTIALS_ID) {
+                        def dockerImage = docker.image(dockerImageTag)
+                        dockerImage.push()
+                    }
+                }
+            }
+        }
+
+        stage('Pull Docker Image') {
+            steps {
+                script {
+                    docker.withRegistry(env.DOCKER_REGISTRY, env.DOCKER_CREDENTIALS_ID) {
+                        def dockerImage = docker.image(dockerImageTag)
+                        dockerImage.pull()
+                    }
+                }
+            }
+        }
+    }
+}
+

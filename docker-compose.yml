@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  cms-user-service:
+    image: cms-user-service
+    container_name: cms-user-service-con1
+    ports:
+      - "8081:8081"
+    networks:
+      - cms-network
+
+  service-registry:
+    image: cms-service-registry
+    container_name: cms-service-registry-con2
+    ports:
+      - "8761:8761"
+    networks:
+      - cms-network
+
+  cms-policy-service:
+    image: cms-policy-service
+    container_name: cms-policy-service-con3
+    ports:
+      - "8082:8082"
+    networks:
+      - cms-network
+
+  cms-frontend:
+    image: cms-frontend
+    container_name: cms-frontend-con4
+    ports:
+      - "3000:3000"
+    networks:
+      - cms-network
+
+  cms-claim-service:
+    image: cms-claim-service
+    container_name: cms-claim-service-con5
+    ports:
+      - "8083:8083"
+    networks:
+      - cms-network
+
+  cms-api-gateway:
+    image: cms-api-gateway
+    container_name: cms-api-gateway-con6
+    ports:
+      - "9000:9000"
+    networks:
+      - cms-network
+
+networks:
+  cms-network:
+    driver: bridge

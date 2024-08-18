@@ -1,0 +1,12 @@
+eureka:
+  instance:
+    hostname: 34.236.123.18
+  
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+
+# default for eureka server
+server:
+  port: 8761
+  
