@@ -1,6 +1,6 @@
 eureka:
   instance:
-    hostname: 34.236.123.18
+    hostname: 3.234.192.143
   
   client:
     register-with-eureka: false
